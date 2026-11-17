@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -96,18 +99,91 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
+  
+    final questions = <QuizQuestion>[];
+    final answers = <String?>[];
+
+    int questionIndex = 0;
+    int score = 0;
+
+    String roundId = '';
+    String message = 'Press Start to begin.';
+
+    bool loading = false;
+    bool answered = false;
+    bool finished = false;
+    bool submitting = false;
+
+    DateTime? lastRequest;
+    
+Future<void> loadQuestions() async {
+  setState(() {
+    loading = true;
+    message = 'Loading questions...';
+  });
+
+  try {
+    final response = await http.get(
+      Uri.parse(
+        'https://opentdb.com/api.php?amount=10&category=9&difficulty=easy&type=multiple',
+      ),
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw Exception('Could not load questions');
+    }
+
+    final data = jsonDecode(response.body);
+
+    if (data['response_code'] != 0 ||
+        data['results'].length != 10) {
+      throw Exception('Invalid questions');
+    }
+
+    questions.clear();
+
+    for (final item in data['results']) {
+      final correct = decodeHtml(item['correct_answer'].toString());
+      final incorrectAnswers = (item['incorrect_answers'] as List<dynamic>)
+          .map<String>((answer) => decodeHtml(answer.toString()));
+
+      final choices = <String>[correct, ...incorrectAnswers]
+        ..shuffle();
+
+      questions.add(
+        QuizQuestion(
+          question: decodeHtml(item['question'].toString()),
+          correctAnswer: correct,
+          choices: choices,
+        ),
+      );
+    }
+
+    answers.clear();
+    answers.addAll(List<String?>.filled(10, null));
+
+    setState(() {
+      loading = false;
+      message = 'Choose your answer.';
+    });
+  } catch (e) {
+    setState(() {
+      loading = false;
+      message = 'Could not load questions. Try again.';
+    });
+  }
+}
+
   @override
   Widget build(BuildContext context) {
-    final user = widget.user;
-    final onComplete = widget.onComplete;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome ${user.email ?? 'User'}'),
+        title: Text('Welcome ${widget.user.email ?? 'User'}'),
       ),
       body: Center(
         child: ElevatedButton(
-          onPressed: onComplete,
+          onPressed: widget.onComplete,
           child: const Text('Complete Quiz'),
         ),
       ),
