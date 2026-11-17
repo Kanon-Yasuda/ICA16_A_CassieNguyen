@@ -1,17 +1,28 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /challenges/{challengeId} {
-      allow read: if request.auth != null;
-      allow write: if false;
-    }
-    match /users/{userId}/progress/{progressId} {
-      allow read: if request.auth != null
-        && request.auth.uid == userId;
-      allow write: if false;
-    }
-    match /users/{userId}/devices/{deviceId} {
-      allow read, write: if false;
+    match /users/{uid}/attempts/{roundId} {
+      function owner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+      function validAttempt() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['schemaVersion', 'variant', 'categoryId',
+                 'questionCount', 'correctCount', 'submittedAt'])
+          && d.keys().hasOnly(['schemaVersion', 'variant', 'categoryId',
+                 'questionCount', 'correctCount', 'submittedAt'])
+          && d.schemaVersion is int && d.schemaVersion == 1
+          && d.variant == 'A'
+          && d.categoryId is int && d.categoryId == 9
+          && d.questionCount is int && d.questionCount == 10
+          && d.correctCount is int
+          && d.correctCount >= 0 && d.correctCount <= 10
+          && d.submittedAt is timestamp
+          && d.submittedAt == request.time;
+      }
+      allow read: if owner();
+      allow create: if owner() && validAttempt();
+      allow update, delete: if false;
     }
   }
 }
