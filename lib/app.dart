@@ -1,7 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'services/challenge_service.dart';
-import 'services/coach_service.dart';
 
 class App extends StatelessWidget {
   const App({super.key, required this.onComplete});
@@ -24,7 +22,7 @@ class App extends StatelessWidget {
           if (user == null) {
             return const SignInScreen();
           }
-          return ChallengeScreen(user: user, onComplete: onComplete);
+          return QuizScreen(user: user, onComplete: onComplete);
         },
       ),
     );
@@ -66,8 +64,25 @@ class SignInScreen extends StatelessWidget {
   }
 }
 
-class ChallengeScreen extends StatelessWidget {
-  const ChallengeScreen({
+String decodeHtml(String text) {
+  const replacements = {
+    '&quot;': '"',
+    '&#039;': "'",
+    '&apos;': "'",
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+  };
+
+  replacements.forEach((key, value) {
+    text = text.replaceAll(key, value);
+  });
+
+  return text;
+}
+
+class QuizScreen extends StatefulWidget {
+  const QuizScreen({
     super.key,
     required this.user,
     required this.onComplete,
@@ -77,65 +92,37 @@ class ChallengeScreen extends StatelessWidget {
   final VoidCallback onComplete;
 
   @override
+  State<QuizScreen> createState() => _QuizScreenState();
+}
+
+class _QuizScreenState extends State<QuizScreen> {
+  @override
   Widget build(BuildContext context) {
+    final user = widget.user;
+    final onComplete = widget.onComplete;
+
     return Scaffold(
+      appBar: AppBar(
+        title: Text('Welcome ${user.email ?? 'User'}'),
+      ),
       body: Center(
         child: ElevatedButton(
           onPressed: onComplete,
-          child: const Text('Complete challenge'),
+          child: const Text('Complete Quiz'),
         ),
       ),
     );
   }
 }
 
-class QuestCoachBox extends StatefulWidget {
-  const QuestCoachBox({super.key});
+class QuizQuestion {
+  QuizQuestion({
+    required this.question,
+    required this.correctAnswer,
+    required this.choices,
+  });
 
-  @override
-  State<QuestCoachBox> createState() => _QuestCoachBoxState();
-}
-
-class _QuestCoachBoxState extends State<QuestCoachBox> {
-  final question = TextEditingController();
-  String reply = '';
-
-  Future<void> askCoach() async {
-    setState(() => reply = 'Loading...');
-
-    try {
-      final answer = await getQuestHint(question.text);
-      if (!mounted) return;
-      setState(() => reply = answer);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => reply = 'Could not get a hint.');
-    }
-  }
-
-  @override
-  void dispose() {
-    question.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextField(
-          controller: question,
-          maxLength: 300,
-          decoration: const InputDecoration(
-            labelText: 'Ask the AI Coach',
-          ),
-        ),
-        ElevatedButton(
-          onPressed: askCoach,
-          child: const Text('Get Hint'),
-        ),
-        Text(reply),
-      ],
-    );
-  }
+  final String question;
+  final String correctAnswer;
+  final List<String> choices;
 }
